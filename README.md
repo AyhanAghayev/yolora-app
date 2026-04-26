@@ -1,6 +1,6 @@
-# YoloRa - Accessibility & Volunteer Platform
+# Yolora - Accessibility & Volunteer Platform
 
-YoloRa is a modern mobile application designed to connect people with disabilities with nearby volunteers. It features a map-centric interface to help users navigate and request assistance in real-time.
+Yolora is a modern mobile application designed to connect people with disabilities with nearby volunteers. It features a map-centric interface to help users navigate and request assistance in real-time.
 
 ## Project Structure
 
