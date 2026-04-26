@@ -58,7 +58,7 @@ export class User {
   @Column({ type: 'double precision', nullable: true })
   longitude: number | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   fcmToken: string | null;
 
   @Column({ default: false })

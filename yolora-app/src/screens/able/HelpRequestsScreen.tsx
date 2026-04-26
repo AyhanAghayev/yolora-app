@@ -1,114 +1,148 @@
-import React, { useContext, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, FlatList, ActivityIndicator } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import React, { useContext } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity } from 'react-native';
 import { ThemeContext } from '../../context/ThemeContext';
-import { SocketContext } from '../../context/SocketContext';
 import { Typography } from '../../theme/typography';
 import { Spacing } from '../../theme/spacing';
-import { Button, Card } from '../../components';
-import { IncomingHelpRequest } from '../../types';
+import Icon from 'react-native-vector-icons/Ionicons';
 
 export const HelpRequestsScreen = () => {
   const { colors } = useContext(ThemeContext);
-  const { incomingRequests, acceptRequest } = useContext(SocketContext);
-  const navigation = useNavigation<NativeStackNavigationProp<any>>();
-  const [acceptingId, setAcceptingId] = useState<string | null>(null);
 
-  const handleAccept = async (req: IncomingHelpRequest) => {
-    setAcceptingId(req.id);
-    try {
-      await acceptRequest(req.id, req.latitude, req.longitude);
-      navigation.navigate('Navigate', {
-        requestId: req.id,
-        requesterLatitude: req.latitude,
-        requesterLongitude: req.longitude,
-      });
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setAcceptingId(null);
+  // Realistic mock data for screenshots
+  const mockRequests = [
+    {
+      id: '1',
+      name: 'Aynur M.',
+      distance: '200m',
+      type: 'Blind',
+      description: 'Need help finding the elevator at 28th May Metro Station.',
+      time: 'Just now',
+    },
+    {
+      id: '2',
+      name: 'Farid M.',
+      distance: '500m',
+      type: 'Wheelchair',
+      description: 'Assistance needed crossing Nizami Street due to construction.',
+      time: '2 mins ago',
+    },
+    {
+      id: '3',
+      name: 'Leyla K.',
+      distance: '800m',
+      type: 'Deaf',
+      description: 'Need translation assistance at the pharmacy.',
+      time: '5 mins ago',
+    },
+  ];
+
+  const getIconForType = (type: string) => {
+    switch(type) {
+      case 'Blind': return 'eye-off';
+      case 'Wheelchair': return 'body';
+      case 'Deaf': return 'ear';
+      default: return 'person';
     }
   };
 
-  const renderItem = ({ item }: { item: IncomingHelpRequest }) => (
-    <Card elevated>
-      <View style={styles.requestHeader}>
-        <Text style={[Typography.h3, { color: colors.text }]}>{item.requesterName}</Text>
-        <Text style={[Typography.caption, { color: colors.primary, textTransform: 'capitalize' }]}>
-          {item.disabilityType}
-        </Text>
+  const renderItem = ({ item }: { item: typeof mockRequests[0] }) => (
+    <View style={[styles.card, { backgroundColor: colors.surfaceElevated }]}>
+      <View style={styles.cardHeader}>
+        <View style={styles.userInfo}>
+          <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary + '20' }]}>
+            <Text style={[Typography.bodyBold, { color: colors.primary }]}>{item.name[0]}</Text>
+          </View>
+          <View>
+            <Text style={[Typography.bodyBold, { color: colors.text }]}>{item.name}</Text>
+            <Text style={[Typography.small, { color: colors.textMuted }]}>{item.time} • {item.distance}</Text>
+          </View>
+        </View>
+        <View style={[styles.typeBadge, { backgroundColor: colors.secondary + '20' }]}>
+          <Icon name={getIconForType(item.type)} size={12} color={colors.secondary} style={{ marginRight: 4 }} />
+          <Text style={[Typography.small, { color: colors.secondary, fontWeight: 'bold' }]}>{item.type}</Text>
+        </View>
       </View>
-      <Text style={[Typography.body, { color: colors.textSecondary, marginBottom: Spacing.md }]}>
-        Needs assistance nearby.
+      
+      <Text style={[Typography.body, { color: colors.textSecondary, marginTop: Spacing.sm }]}>
+        {item.description}
       </Text>
       
       <View style={styles.actionRow}>
-        <Button
-          title="Accept"
-          onPress={() => handleAccept(item)}
-          loading={acceptingId === item.id}
-          style={{ flex: 1, marginRight: Spacing.sm }}
-        />
-        <Button
-          title="Ignore"
-          variant="outline"
-          onPress={() => {}} // Remove from local list or ignore
-          style={{ flex: 1, marginLeft: Spacing.sm }}
-        />
+        <TouchableOpacity style={[styles.acceptButton, { backgroundColor: colors.primary }]}>
+          <Text style={[Typography.bodyBold, { color: '#FFF' }]}>Accept Request</Text>
+        </TouchableOpacity>
       </View>
-    </Card>
+    </View>
   );
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={[Typography.h2, { color: colors.text }]}>
-            Help Requests
-          </Text>
-        </View>
-
-        {incomingRequests.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={[Typography.body, { color: colors.textSecondary }]}>
-              No requests nearby at the moment.
-            </Text>
-          </View>
-        ) : (
-          <FlatList
-            data={incomingRequests}
-            keyExtractor={(item) => item.id}
-            renderItem={renderItem}
-            contentContainerStyle={{ paddingBottom: Spacing.xxl }}
-          />
-        )}
+      <View style={styles.header}>
+        <Text style={[Typography.h2, { color: colors.text }]}>Active Requests</Text>
       </View>
+      
+      <FlatList
+        data={mockRequests}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        contentContainerStyle={styles.listContainer}
+        showsVerticalScrollIndicator={false}
+      />
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: Spacing.xl,
-  },
   header: {
-    marginBottom: Spacing.xl,
+    padding: Spacing.xl,
+    paddingTop: Spacing.xxl,
   },
-  emptyContainer: {
-    flex: 1,
+  listContainer: {
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: Spacing.xxl,
+  },
+  card: {
+    borderRadius: 20,
+    padding: Spacing.lg,
+    marginBottom: Spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  userInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatarPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: Spacing.sm,
   },
-  requestHeader: {
+  typeBadge: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.xs,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   actionRow: {
+    marginTop: Spacing.md,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
+  },
+  acceptButton: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: 16,
   },
 });
