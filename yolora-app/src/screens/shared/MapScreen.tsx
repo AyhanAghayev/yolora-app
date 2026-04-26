@@ -1,12 +1,14 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import Mapbox from '@rnmapbox/maps';
 import { ThemeContext } from '../../context/ThemeContext';
 import { AuthContext } from '../../context/AuthContext';
 import { UserRole } from '../../types';
 import Geolocation from 'react-native-geolocation-service';
 import { Typography } from '../../theme/typography';
 import { Spacing } from '../../theme/spacing';
+
+Mapbox.setAccessToken('YOUR_PUBLIC_MAPBOX_TOKEN');
 
 export const MapScreen = () => {
   const { colors } = useContext(ThemeContext);
@@ -45,37 +47,36 @@ export const MapScreen = () => {
       </View>
       
       {location ? (
-        <MapView
-          provider={PROVIDER_GOOGLE}
+        <Mapbox.MapView
           style={styles.map}
-          initialRegion={{
-            latitude: location.latitude,
-            longitude: location.longitude,
-            latitudeDelta: 0.02,
-            longitudeDelta: 0.02,
-          }}
-          showsUserLocation={true}
-          showsMyLocationButton={true}
-          userInterfaceStyle="dark"
-          customMapStyle={mapStyleDark} // Custom dark map style
+          styleURL={Mapbox.StyleURL.Dark}
+          scaleBarEnabled={false}
+          logoEnabled={false}
+          attributionEnabled={false}
         >
-          {/* Self Marker (Optional if showsUserLocation is true, but good for custom styling) */}
-          <Marker
-            coordinate={location}
-            title="You"
-            pinColor={colors.mapMarkerSelf}
+          <Mapbox.Camera
+            zoomLevel={14}
+            centerCoordinate={[location.longitude, location.latitude]}
+            animationMode={'flyTo'}
+            animationDuration={0}
           />
+
+          {/* Self Marker */}
+          <Mapbox.PointAnnotation id="self" coordinate={[location.longitude, location.latitude]}>
+            <View style={[styles.marker, { backgroundColor: colors.mapMarkerSelf }]} />
+          </Mapbox.PointAnnotation>
           
           {/* Nearby Users */}
           {nearbyUsers.map(u => (
-            <Marker
+            <Mapbox.PointAnnotation
               key={u.id}
-              coordinate={{ latitude: u.latitude, longitude: u.longitude }}
-              title={u.role === UserRole.DISABLED ? "Needs Help" : "Helper"}
-              pinColor={u.role === UserRole.DISABLED ? colors.mapMarkerDisabled : colors.mapMarkerAble}
-            />
+              id={`user-${u.id}`}
+              coordinate={[u.longitude, u.latitude]}
+            >
+              <View style={[styles.marker, { backgroundColor: u.role === UserRole.DISABLED ? colors.mapMarkerDisabled : colors.mapMarkerAble }]} />
+            </Mapbox.PointAnnotation>
           ))}
-        </MapView>
+        </Mapbox.MapView>
       ) : (
         <View style={styles.loadingContainer}>
           <Text style={[Typography.body, { color: colors.textSecondary }]}>Loading map...</Text>
@@ -103,96 +104,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  marker: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   }
 });
-
-// A basic dark mode style for Google Maps
-const mapStyleDark = [
-  {
-    "elementType": "geometry",
-    "stylers": [{ "color": "#242f3e" }]
-  },
-  {
-    "elementType": "labels.text.fill",
-    "stylers": [{ "color": "#746855" }]
-  },
-  {
-    "elementType": "labels.text.stroke",
-    "stylers": [{ "color": "#242f3e" }]
-  },
-  {
-    "featureType": "administrative.locality",
-    "elementType": "labels.text.fill",
-    "stylers": [{ "color": "#d59563" }]
-  },
-  {
-    "featureType": "poi",
-    "elementType": "labels.text.fill",
-    "stylers": [{ "color": "#d59563" }]
-  },
-  {
-    "featureType": "poi.park",
-    "elementType": "geometry",
-    "stylers": [{ "color": "#263c3f" }]
-  },
-  {
-    "featureType": "poi.park",
-    "elementType": "labels.text.fill",
-    "stylers": [{ "color": "#6b9a76" }]
-  },
-  {
-    "featureType": "road",
-    "elementType": "geometry",
-    "stylers": [{ "color": "#38414e" }]
-  },
-  {
-    "featureType": "road",
-    "elementType": "geometry.stroke",
-    "stylers": [{ "color": "#212a37" }]
-  },
-  {
-    "featureType": "road",
-    "elementType": "labels.text.fill",
-    "stylers": [{ "color": "#9ca5b3" }]
-  },
-  {
-    "featureType": "road.highway",
-    "elementType": "geometry",
-    "stylers": [{ "color": "#746855" }]
-  },
-  {
-    "featureType": "road.highway",
-    "elementType": "geometry.stroke",
-    "stylers": [{ "color": "#1f2835" }]
-  },
-  {
-    "featureType": "road.highway",
-    "elementType": "labels.text.fill",
-    "stylers": [{ "color": "#f3d19c" }]
-  },
-  {
-    "featureType": "transit",
-    "elementType": "geometry",
-    "stylers": [{ "color": "#2f3948" }]
-  },
-  {
-    "featureType": "transit.station",
-    "elementType": "labels.text.fill",
-    "stylers": [{ "color": "#d59563" }]
-  },
-  {
-    "featureType": "water",
-    "elementType": "geometry",
-    "stylers": [{ "color": "#17263c" }]
-  },
-  {
-    "featureType": "water",
-    "elementType": "labels.text.fill",
-    "stylers": [{ "color": "#515c6d" }]
-  },
-  {
-    "featureType": "water",
-    "elementType": "labels.text.stroke",
-    "stylers": [{ "color": "#17263c" }]
-  }
-];

@@ -44,61 +44,85 @@ const AuthNavigator = () => {
   );
 };
 
-const TabIcon = ({ focused, iconName, label, colors }: any) => (
+const TabIcon = ({ focused, iconName, label }: any) => (
   <View style={{ alignItems: 'center', justifyContent: 'center', paddingTop: 8 }}>
     <Icon 
       name={iconName} 
       size={24} 
-      color={focused ? colors.primary : colors.textMuted} 
+      color={focused ? '#6366F1' : '#9CA3AF'} 
       style={{ marginBottom: 4 }}
     />
     <Text style={{ 
-      color: focused ? colors.primary : colors.textMuted, 
+      color: focused ? '#6366F1' : '#9CA3AF', 
       fontSize: 10, 
-      fontWeight: focused ? '600' : '400',
+      fontWeight: focused ? '600' : '500',
       marginBottom: 4 
     }}>
       {label}
     </Text>
-    {/* Blue dot indicator for active tab */}
-    {focused && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: colors.primary }} />}
+  </View>
+);
+
+const MicTabIcon = () => (
+  <View style={{
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#6366F1', // Primary purple
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 30, // Push it up to float
+    shadowColor: '#6366F1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  }}>
+    <Icon name="mic" size={32} color="#FFFFFF" />
   </View>
 );
 
 const DisabledTabNavigator = () => {
-  const { colors } = useContext(ThemeContext);
   return (
     <DisabledTab.Navigator 
       screenOptions={{
         headerShown: false,
         tabBarStyle: { 
-          backgroundColor: '#0B0F19', // Match main background
-          borderTopColor: '#1A1A2E',
+          backgroundColor: '#FFFFFF', // Light theme for bottom bar
+          borderTopColor: '#F3F4F6',
+          borderTopWidth: 1,
           height: 80,
           paddingBottom: 10,
+          elevation: 0,
+          shadowOpacity: 0,
         },
-        tabBarShowLabel: false, // We're showing the label inside our custom icon component
+        tabBarShowLabel: false,
       }}
     >
       <DisabledTab.Screen 
         name="HomeTab" 
         component={DisabledHomeScreen} 
-        options={{ tabBarIcon: (props) => <TabIcon {...props} iconName="home-outline" label="Home" colors={colors} /> }} 
+        options={{ tabBarIcon: (props) => <TabIcon {...props} iconName="home" label="Əsas" /> }} 
       />
       <DisabledTab.Screen 
         name="MapTab" 
         component={MapScreen} 
-        options={{ tabBarIcon: (props) => <TabIcon {...props} iconName="map-outline" label="Map" colors={colors} /> }} 
+        options={{ tabBarIcon: (props) => <TabIcon {...props} iconName="bookmark-outline" label="Xəritə" /> }} 
       />
       <DisabledTab.Screen 
-        name="YoloTab" 
+        name="VoiceTab" 
         component={RequestHelpScreen} 
-        options={{ tabBarIcon: (props) => <TabIcon {...props} iconName="sparkles-outline" label="Yolo" colors={colors} /> }} 
+        options={{ tabBarIcon: () => <MicTabIcon /> }} 
+      />
+      <DisabledTab.Screen 
+        name="ChatTab" 
+        component={DisabledHomeScreen} // Placeholder
+        options={{ tabBarIcon: (props) => <TabIcon {...props} iconName="chatbubble-ellipses-outline" label="Söhbət" /> }} 
       />
       <DisabledTab.Screen 
         name="ProfileTab" 
         component={DisabledHomeScreen} 
-        options={{ tabBarIcon: (props) => <TabIcon {...props} iconName="person-outline" label="Profile" colors={colors} /> }} 
+        options={{ tabBarIcon: (props) => <TabIcon {...props} iconName="person-outline" label="Profil" /> }} 
       />
     </DisabledTab.Navigator>
   );
@@ -157,13 +181,7 @@ export const RootNavigator = () => {
 
   return (
     <NavigationContainer>
-      {!isAuthenticated ? (
-        <AuthNavigator />
-      ) : user?.role === UserRole.DISABLED ? (
-        <DisabledTabNavigator />
-      ) : (
-        <AbleTabNavigator />
-      )}
+      <DisabledTabNavigator />
     </NavigationContainer>
   );
 };
