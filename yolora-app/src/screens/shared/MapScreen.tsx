@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
-import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import { View, StyleSheet, Text, SafeAreaView } from 'react-native';
+import Mapbox from '@rnmapbox/maps';
 import { ThemeContext } from '../../context/ThemeContext';
 import { AuthContext } from '../../context/AuthContext';
 import { SocketContext } from '../../context/SocketContext';
@@ -8,6 +8,8 @@ import { useLocation } from '../../hooks/useLocation';
 import { apiGetActiveRequest, apiGetNearbyUsers, apiUpdateLocation } from '../../services/api';
 import { HelpRequest, HelpRequestStatus, NearbyUser, UserRole } from '../../types';
 import { Typography } from '../../theme/typography';
+
+Mapbox.setAccessToken('YOUR_PUBLIC_MAPBOX_TOKEN');
 
 export const MapScreen = () => {
   const { colors } = useContext(ThemeContext);
@@ -70,8 +72,8 @@ export const MapScreen = () => {
 
     if (user?.role === UserRole.DISABLED && helperLocation) {
       return [
-        { latitude: location.latitude, longitude: location.longitude },
-        helperLocation,
+        [location.longitude, location.latitude],
+        [helperLocation.longitude, helperLocation.latitude],
       ];
     }
 
@@ -82,11 +84,8 @@ export const MapScreen = () => {
       activeRequest.requesterLongitude
     ) {
       return [
-        { latitude: location.latitude, longitude: location.longitude },
-        {
-          latitude: activeRequest.requesterLatitude,
-          longitude: activeRequest.requesterLongitude,
-        },
+        [location.longitude, location.latitude],
+        [activeRequest.requesterLongitude, activeRequest.requesterLatitude],
       ];
     }
 
@@ -99,57 +98,65 @@ export const MapScreen = () => {
         <Text style={[Typography.h2, { color: colors.text }]}>Xəritə</Text>
         <Text style={[Typography.caption, { color: colors.textSecondary }]}>1 km radius • live updates</Text>
       </View>
+      
+      {location ? (
+        <Mapbox.MapView
+          style={styles.map}
+          styleURL={Mapbox.StyleURL.Dark}
+          scaleBarEnabled={false}
+          logoEnabled={false}
+          attributionEnabled={false}
+        >
+          <Mapbox.Camera
+            zoomLevel={14}
+            centerCoordinate={[location.longitude, location.latitude]}
+            animationMode={'flyTo'}
+            animationDuration={0}
+          />
 
-      <View style={[styles.mapCard, { backgroundColor: colors.surface }]}>
-        {location ? (
-          <MapView
-            provider={PROVIDER_GOOGLE}
-            style={StyleSheet.absoluteFill}
-            initialRegion={{
-              latitude: location.latitude,
-              longitude: location.longitude,
-              latitudeDelta: 0.012,
-              longitudeDelta: 0.012,
-            }}
-            region={{
-              latitude: location.latitude,
-              longitude: location.longitude,
-              latitudeDelta: 0.012,
-              longitudeDelta: 0.012,
-            }}
-            showsUserLocation
-            showsMyLocationButton>
-            <Marker coordinate={location} title="You" pinColor={colors.mapMarkerSelf} />
-            {nearbyUsers.map((nearbyUser) => (
-              <Marker
-                key={nearbyUser.id}
-                coordinate={{ latitude: nearbyUser.latitude, longitude: nearbyUser.longitude }}
-                title={nearbyUser.displayName}
-                description={`${(nearbyUser.distance / 1000).toFixed(1)} km`}
-                pinColor={
-                  nearbyUser.role === UserRole.ABLE
-                    ? colors.mapMarkerAble
-                    : colors.mapMarkerDisabled
-                }
+          {/* Self Marker */}
+          <Mapbox.PointAnnotation id="self" coordinate={[location.longitude, location.latitude]}>
+            <View style={[styles.marker, { backgroundColor: colors.mapMarkerSelf }]} />
+          </Mapbox.PointAnnotation>
+          
+          {/* Nearby Users */}
+          {nearbyUsers.map(u => (
+            <Mapbox.PointAnnotation
+              key={u.id}
+              id={`user-${u.id}`}
+              coordinate={[u.longitude, u.latitude]}
+            >
+              <View style={[styles.marker, { backgroundColor: u.role === UserRole.DISABLED ? colors.mapMarkerDisabled : colors.mapMarkerAble }]} />
+            </Mapbox.PointAnnotation>
+          ))}
+
+          {/* Route Line */}
+          {routeLine && (
+            <Mapbox.ShapeSource id="routeSource" shape={{
+              type: 'Feature',
+              properties: {},
+              geometry: {
+                type: 'LineString',
+                coordinates: routeLine
+              }
+            }}>
+              <Mapbox.LineLayer
+                id="routeFill"
+                style={{
+                  lineColor: colors.primary,
+                  lineWidth: 4,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                }}
               />
-            ))}
-
-            {routeLine ? (
-              <Polyline coordinates={routeLine} strokeColor={colors.primary} strokeWidth={4} />
-            ) : null}
-          </MapView>
-        ) : (
-          <View style={styles.loadingContainer}>
-            <Text style={[Typography.body, { color: colors.textSecondary }]}>Loading location...</Text>
-          </View>
-        )}
-      </View>
-
-      <View style={[styles.legendCard, { backgroundColor: colors.surface }]}>
-        <Text style={[Typography.caption, { color: colors.textSecondary }]}>
-          Purple: You • Blue: Helpers • Orange: Disabled users
-        </Text>
-      </View>
+            </Mapbox.ShapeSource>
+          )}
+        </Mapbox.MapView>
+      ) : (
+        <View style={styles.loadingContainer}>
+          <Text style={[Typography.body, { color: colors.textSecondary }]}>Loading map...</Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -162,20 +169,21 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: 12,
   },
-  mapCard: {
+  map: {
     flex: 1,
     borderRadius: 18,
     overflow: 'hidden',
   },
   loadingContainer: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
-  },
-  legendCard: {
-    marginTop: 12,
-    borderRadius: 14,
-    padding: 12,
     alignItems: 'center',
   },
+  marker: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  }
 });

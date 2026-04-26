@@ -1,452 +1,406 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react';
-import {
-  Image,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Image, Platform, PermissionsAndroid } from 'react-native';
+import Mapbox from '@rnmapbox/maps';
 import Icon from 'react-native-vector-icons/Ionicons';
-import MaterialCommunityIcon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ThemeContext } from '../../context/ThemeContext';
-import { AuthContext } from '../../context/AuthContext';
-import { SocketContext } from '../../context/SocketContext';
-import { Typography } from '../../theme/typography';
-import { apiGetNearbyUsers, apiUpdateLocation } from '../../services/api';
-import { useLocation } from '../../hooks/useLocation';
-import { useVoice } from '../../hooks/useVoice';
-import { DisabilityType, NearbyUser, UserRole } from '../../types';
+import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
+import Geolocation from 'react-native-geolocation-service';
 
-type HelperUiItem = NearbyUser & { avatar: string };
-
-const fillerHelpers: HelperUiItem[] = [
-  {
-    id: 'mock-1',
-    displayName: 'Aysel H.',
-    email: 'aysel@example.com',
-    role: UserRole.ABLE,
-    latitude: 40.4124,
-    longitude: 49.8649,
-    isOnline: true,
-    distance: 200,
-    avatar: 'https://randomuser.me/api/portraits/women/32.jpg',
-  },
-  {
-    id: 'mock-2',
-    displayName: 'Murad Ə.',
-    email: 'murad@example.com',
-    role: UserRole.ABLE,
-    latitude: 40.4106,
-    longitude: 49.8628,
-    isOnline: true,
-    distance: 400,
-    avatar: 'https://randomuser.me/api/portraits/men/31.jpg',
-  },
-];
-
-const buildRoutePath = (
-  from: { latitude: number; longitude: number },
-  to: { latitude: number; longitude: number },
-) => {
-  const latStep = (to.latitude - from.latitude) / 3;
-  const lonStep = (to.longitude - from.longitude) / 3;
-  return [
-    from,
-    {
-      latitude: from.latitude + latStep + 0.00045,
-      longitude: from.longitude + lonStep - 0.00025,
-    },
-    {
-      latitude: from.latitude + latStep * 2 - 0.0003,
-      longitude: from.longitude + lonStep * 2 + 0.0003,
-    },
-    to,
-  ];
-};
+Mapbox.setAccessToken('YOUR_PUBLIC_MAPBOX_TOKEN');
 
 export const DisabledHomeScreen = () => {
-  const { colors } = useContext(ThemeContext);
-  const { user, logout } = useContext(AuthContext);
-  const { sendLocationUpdate } = useContext(SocketContext);
-  const navigation = useNavigation<NativeStackNavigationProp<any>>();
-  const { location } = useLocation(true);
-  const [nearbyHelpers, setNearbyHelpers] = useState<HelperUiItem[]>([]);
-
-  const isBlindMode = user?.disabilityType === DisabilityType.BLIND;
-
-  const voiceCommands = useMemo(
-    () => [
-      {
-        keywords: ['request help', 'help', 'komək'],
-        description: 'Open help request screen',
-        action: () => navigation.navigate('RequestHelpTab'),
-      },
-      {
-        keywords: ['open map', 'map', 'xəritə'],
-        description: 'Open map tab',
-        action: () => navigation.navigate('MapTab'),
-      },
-      {
-        keywords: ['logout', 'sign out'],
-        description: 'Logout',
-        action: () => logout(),
-      },
-    ],
-    [logout, navigation],
-  );
-
-  const { isListening, speak, startListening } = useVoice(voiceCommands);
-
-  const center = location || { latitude: 40.4093, longitude: 49.8671 };
+  // Start in Baku by default
+  const [location, setLocation] = useState<{ latitude: number, longitude: number }>({ latitude: 40.4093, longitude: 49.8671 });
 
   useEffect(() => {
-    if (!location) {
-      return;
-    }
-
-    const syncAndLoad = async () => {
-      await apiUpdateLocation(location.latitude, location.longitude);
-      sendLocationUpdate(location);
-      const helpers = await apiGetNearbyUsers(
-        location.latitude,
-        location.longitude,
-        1000,
-        UserRole.ABLE,
-      );
-      const withAvatar = helpers.map((helper, index) => ({
-        ...helper,
-        avatar:
-          index % 2 === 0
-            ? 'https://randomuser.me/api/portraits/women/32.jpg'
-            : 'https://randomuser.me/api/portraits/men/31.jpg',
-      }));
-      setNearbyHelpers(withAvatar);
+    const requestLocationPermission = async () => {
+      try {
+        if (Platform.OS === 'android') {
+          const granted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+            {
+              title: 'Location Permission',
+              message: 'Yolo AI needs access to your location for navigation.',
+              buttonNeutral: 'Ask Me Later',
+              buttonNegative: 'Cancel',
+              buttonPositive: 'OK',
+            },
+          );
+          if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+            console.log('Location permission denied');
+            setLocation({ latitude: 40.4093, longitude: 49.8671 });
+            return;
+          }
+        }
+        
+        Geolocation.getCurrentPosition(
+          (position) => {
+            setLocation({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+            });
+          },
+          (error) => {
+            console.log(error.code, error.message);
+            setLocation({ latitude: 40.4093, longitude: 49.8671 });
+          },
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+        );
+      } catch (err) {
+        console.warn(err);
+      }
     };
 
-    syncAndLoad().catch(() => {
-      setNearbyHelpers([]);
-    });
-  }, [location, sendLocationUpdate]);
+    requestLocationPermission();
+  }, []);
 
-  useEffect(() => {
-    if (!isBlindMode) {
-      return;
-    }
-    speak('Blind mode active. Say Request Help, Open Map, or Logout.');
-    startListening().catch(() => {});
-  }, [isBlindMode, speak, startListening]);
-
-  const helpersToRender = nearbyHelpers.length ? nearbyHelpers.slice(0, 2) : fillerHelpers;
-  const routeTarget = {
-    latitude: helpersToRender[0].latitude,
-    longitude: helpersToRender[0].longitude,
-  };
-  const routePath = buildRoutePath(center, routeTarget);
-  const topLeftMarker = {
-    latitude: center.latitude + 0.0025,
-    longitude: center.longitude - 0.002,
-  };
-  const parkingMarker = {
-    latitude: center.latitude + 0.0004,
-    longitude: center.longitude + 0.0018,
-  };
+  const routeCoordinates = location ? [
+    location,
+    { latitude: location.latitude + 0.002, longitude: location.longitude + 0.002 },
+    { latitude: location.latitude + 0.004, longitude: location.longitude + 0.003 },
+    { latitude: location.latitude + 0.006, longitude: location.longitude + 0.002 },
+    { latitude: location.latitude + 0.008, longitude: location.longitude + 0.004 },
+  ] : [];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+    <View style={styles.container}>
+      {/* Map Layer */}
+      {location ? (
+        <Mapbox.MapView
+          style={styles.map}
+          styleURL={Mapbox.StyleURL.Street}
+          scaleBarEnabled={false}
+          logoEnabled={false}
+          attributionEnabled={false}
+        >
+          <Mapbox.Camera
+            defaultSettings={{
+              zoomLevel: 15,
+              centerCoordinate: [location.longitude, location.latitude],
+            }}
+          />
+          
+          {/* User Location Marker */}
+          <Mapbox.PointAnnotation id="user" coordinate={[location.longitude, location.latitude]}>
+            <View style={styles.userMarkerContainer}>
+              <View style={styles.userMarkerInner} />
+            </View>
+          </Mapbox.PointAnnotation>
+
+          {/* Route Line */}
+          {routeCoordinates.length > 0 && (
+            <Mapbox.ShapeSource id="routeSource" shape={{
+              type: 'Feature',
+              properties: {},
+              geometry: {
+                type: 'LineString',
+                coordinates: routeCoordinates.map(c => [c.longitude, c.latitude])
+              }
+            }}>
+              <Mapbox.LineLayer
+                id="routeFill"
+                style={{
+                  lineColor: '#3B82F6',
+                  lineWidth: 5,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                }}
+              />
+            </Mapbox.ShapeSource>
+          )}
+
+          {/* Route Waypoints */}
+          {routeCoordinates.map((coord, index) => (
+            index > 0 && index < routeCoordinates.length - 1 ? (
+              <Mapbox.PointAnnotation key={index} id={`waypoint-${index}`} coordinate={[coord.longitude, coord.latitude]}>
+                <View style={styles.waypointMarker} />
+              </Mapbox.PointAnnotation>
+            ) : null
+          ))}
+
+          {/* Destination Marker */}
+          {routeCoordinates.length > 0 && (
+            <Mapbox.PointAnnotation id="destination" coordinate={[routeCoordinates[routeCoordinates.length - 1].longitude, routeCoordinates[routeCoordinates.length - 1].latitude]}>
+              <View style={styles.accessibleMarker}>
+                <FontAwesome5 name="wheelchair" size={16} color="#FFFFFF" />
+              </View>
+            </Mapbox.PointAnnotation>
+          )}
+
+          {/* Other POI Markers */}
+          {location && (
+            <>
+              <Mapbox.PointAnnotation id="poi-1" coordinate={[location.longitude - 0.003, location.latitude + 0.005]}>
+                <View style={styles.accessibleMarker}>
+                  <FontAwesome5 name="wheelchair" size={16} color="#FFFFFF" />
+                </View>
+              </Mapbox.PointAnnotation>
+              <Mapbox.PointAnnotation id="poi-2" coordinate={[location.longitude + 0.006, location.latitude + 0.001]}>
+                <View style={styles.parkingMarker}>
+                  <Text style={styles.parkingText}>P</Text>
+                </View>
+              </Mapbox.PointAnnotation>
+            </>
+          )}
+        </Mapbox.MapView>
+      ) : (
+        <View style={styles.mapPlaceholder} />
+      )}
+
+      {/* Top Header */}
+      <SafeAreaView style={styles.headerContainer} edges={['top']}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.headerIconButton}>
-            <Icon name="menu-outline" size={34} color="#1B1E4A" />
+          <TouchableOpacity>
+            <Icon name="menu-outline" size={28} color="#1A1A2E" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Yolo AI</Text>
-          <TouchableOpacity style={styles.headerIconButton}>
-            <Icon name="notifications-outline" size={32} color="#1B1E4A" />
+          <TouchableOpacity>
+            <Icon name="notifications-outline" size={24} color="#1A1A2E" />
             <View style={styles.notificationDot} />
           </TouchableOpacity>
         </View>
+      </SafeAreaView>
 
-        <View style={styles.mapWrapper}>
-          <MapView
-            provider={PROVIDER_GOOGLE}
-            style={StyleSheet.absoluteFill}
-            initialRegion={{
-              latitude: center.latitude,
-              longitude: center.longitude,
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
-            }}>
-            <Marker coordinate={topLeftMarker} anchor={{ x: 0.5, y: 0.5 }}>
-              <View style={[styles.smallWheelchairMarker, { backgroundColor: '#20C8D9' }]}>
-                <MaterialCommunityIcon name="wheelchair-accessibility" size={18} color="#FFFFFF" />
-              </View>
-            </Marker>
-
-            <Marker coordinate={routeTarget} anchor={{ x: 0.5, y: 0.5 }}>
-              <View style={[styles.smallWheelchairMarker, { backgroundColor: '#2E6BFF' }]}>
-                <MaterialCommunityIcon name="wheelchair-accessibility" size={18} color="#FFFFFF" />
-              </View>
-            </Marker>
-
-            <Marker coordinate={parkingMarker} anchor={{ x: 0.5, y: 0.5 }}>
-              <View style={styles.parkingMarker}>
-                <Text style={styles.parkingMarkerText}>P</Text>
-              </View>
-            </Marker>
-
-            <Polyline coordinates={routePath} strokeColor="#2E6BFF" strokeWidth={5} />
-
-            <Marker coordinate={center} anchor={{ x: 0.5, y: 0.5 }}>
-              <View style={styles.selfMarker}>
-                <Icon name="navigate" size={34} color="#FFFFFF" />
-              </View>
-            </Marker>
-          </MapView>
-        </View>
-
-        <View style={styles.quickActionsRow}>
-          <TouchableOpacity style={styles.quickActionItem}>
-            <Icon name="navigate-outline" size={30} color="#1B1E4A" />
-            <Text style={styles.quickActionText}>Naviqasiya</Text>
+      {/* Bottom Sheet */}
+      <View style={styles.bottomSheet}>
+        {/* Navigation Options */}
+        <View style={styles.navOptionsContainer}>
+          <TouchableOpacity style={styles.navOption}>
+            <Icon name="navigate-outline" size={24} color="#1A1A2E" />
+            <Text style={styles.navOptionText}>Naviqasiya</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.quickActionItem}>
-            <Icon name="bus-outline" size={30} color="#1B1E4A" />
-            <Text style={styles.quickActionText}>Dayanacaqlar</Text>
+          <TouchableOpacity style={styles.navOption}>
+            <Icon name="bus-outline" size={24} color="#1A1A2E" />
+            <Text style={styles.navOptionText}>Dayanacaqlar</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.quickActionItem}>
-            <Icon name="people-outline" size={30} color="#1B1E4A" />
-            <Text style={styles.quickActionText}>Könüllülər</Text>
+          <TouchableOpacity style={[styles.navOption, styles.navOptionActive]}>
+            <Icon name="people-outline" size={24} color="#1A1A2E" />
+            <Text style={styles.navOptionText}>Könüllülər</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.volunteerCard}>
+        {/* Volunteers List */}
+        <View style={styles.volunteersContainer}>
           <Text style={styles.sectionTitle}>Yaxın könüllülər</Text>
-          <View style={styles.separator} />
-          {helpersToRender.map((helper, index) => (
-            <View key={helper.id} style={styles.helperRow}>
-              <Image source={{ uri: helper.avatar }} style={styles.avatar} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.helperName}>{helper.displayName}</Text>
-                <Text style={styles.helperDistance}>
-                  {(helper.distance / 1000).toFixed(1)} km uzaqda
-                </Text>
-              </View>
-              {index < helpersToRender.length - 1 ? <View style={styles.rowDivider} /> : null}
+          
+          <View style={styles.volunteerItem}>
+            <Image 
+              source={{ uri: 'https://randomuser.me/api/portraits/women/44.jpg' }} 
+              style={styles.avatar} 
+            />
+            <View style={styles.volunteerInfo}>
+              <Text style={styles.volunteerName}>Aysel H.</Text>
+              <Text style={styles.volunteerDistance}>0.2 km uzaqda</Text>
             </View>
-          ))}
+          </View>
 
-          <TouchableOpacity
-            onPress={() => navigation.navigate('RequestHelpTab')}
-            style={[styles.helpButton, { backgroundColor: colors.primary }]}>
-            <Text style={styles.helpButtonText}>Kömək istə</Text>
+          <View style={styles.volunteerItem}>
+            <Image 
+              source={{ uri: 'https://randomuser.me/api/portraits/men/32.jpg' }} 
+              style={styles.avatar} 
+            />
+            <View style={styles.volunteerInfo}>
+              <Text style={styles.volunteerName}>Murad Ə.</Text>
+              <Text style={styles.volunteerDistance}>0.4 km uzaqda</Text>
+            </View>
+          </View>
+
+          {/* Request Help Button */}
+          <TouchableOpacity style={styles.requestButton}>
+            <Text style={styles.requestButtonText}>Kömək istə</Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
-
-      {isBlindMode ? (
-        <View style={[styles.voicePill, { backgroundColor: isListening ? colors.primary : '#FFFFFF' }]}>
-          <Icon name="mic" size={16} color={isListening ? '#FFFFFF' : colors.primary} />
-          <Text
-            style={[
-              Typography.small,
-              {
-                marginLeft: 6,
-                color: isListening ? '#FFFFFF' : colors.primary,
-                fontWeight: '700',
-              },
-            ]}>
-            Voice mode
-          </Text>
-        </View>
-      ) : null}
-    </SafeAreaView>
+      </View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
-    backgroundColor: '#F3F4F8',
+    backgroundColor: '#FFFFFF',
   },
-  scrollContent: {
-    paddingBottom: 110,
+  map: {
+    flex: 1,
+  },
+  mapPlaceholder: {
+    flex: 1,
+    backgroundColor: '#E5E7EB',
+  },
+  headerContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
   },
   header: {
-    height: 84,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    backgroundColor: '#FFFFFF',
-  },
-  headerIconButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    marginTop: Platform.OS === 'android' ? 20 : 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)', // Slight background so it's readable over map
+    borderRadius: 20,
+    marginHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   headerTitle: {
-    fontSize: 54,
-    lineHeight: 60,
+    fontSize: 20,
     fontWeight: '700',
-    color: '#1B1E4A',
+    color: '#1A1A2E',
   },
   notificationDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#EF4444',
     position: 'absolute',
-    top: 6,
-    right: 3,
+    top: 2,
+    right: 2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
   },
-  mapWrapper: {
-    height: 410,
-    backgroundColor: '#EDEFF5',
-  },
-  smallWheelchairMarker: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    alignItems: 'center',
+  userMarkerContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(59, 130, 246, 0.3)',
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  userMarkerInner: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#3B82F6',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+  },
+  waypointMarker: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 3,
+    borderColor: '#3B82F6',
+  },
+  accessibleMarker: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#3B82F6',
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 2,
     borderColor: '#FFFFFF',
   },
   parkingMarker: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#2E6BFF',
-    alignItems: 'center',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#6366F1',
     justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 2,
     borderColor: '#FFFFFF',
   },
-  parkingMarkerText: {
+  parkingText: {
     color: '#FFFFFF',
-    fontSize: 22,
-    fontWeight: '800',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
-  selfMarker: {
-    width: 92,
-    height: 92,
-    borderRadius: 46,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#2E6BFF',
-    borderWidth: 4,
-    borderColor: '#FFFFFF',
+  bottomSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 20,
   },
-  quickActionsRow: {
+  navOptionsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    marginTop: 14,
-    gap: 10,
+    marginBottom: 24,
   },
-  quickActionItem: {
+  navOption: {
     flex: 1,
-    minHeight: 112,
-    borderRadius: 18,
-    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#212548',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 7,
-    elevation: 3,
-  },
-  quickActionText: {
-    marginTop: 10,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '600',
-    color: '#1B1E4A',
-  },
-  volunteerCard: {
-    marginTop: 14,
-    marginHorizontal: 14,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    padding: 16,
-  },
-  sectionTitle: {
-    fontSize: 48,
-    lineHeight: 54,
-    fontWeight: '700',
-    color: '#13163D',
-  },
-  separator: {
-    marginTop: 12,
-    marginBottom: 2,
-    height: 1,
-    backgroundColor: '#ECEEF5',
-  },
-  helperRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    position: 'relative',
-  },
-  avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    marginRight: 10,
-    backgroundColor: '#EEF1FF',
-  },
-  helperName: {
-    fontSize: 22,
-    lineHeight: 28,
-    fontWeight: '600',
-    color: '#1B1E4A',
-  },
-  helperDistance: {
-    marginTop: 2,
-    fontSize: 18,
-    lineHeight: 24,
-    color: '#7C82A4',
-  },
-  rowDivider: {
-    position: 'absolute',
-    left: 52,
-    right: 0,
-    bottom: 0,
-    height: 1,
-    backgroundColor: '#ECEEF5',
-  },
-  helpButton: {
-    marginTop: 12,
-    minHeight: 66,
+    paddingVertical: 16,
+    backgroundColor: '#F9FAFB',
     borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+    marginHorizontal: 4,
   },
-  helpButtonText: {
-    color: '#FFFFFF',
-    fontSize: 27,
-    lineHeight: 32,
-    fontWeight: '700',
-  },
-  voicePill: {
-    position: 'absolute',
-    right: 16,
-    bottom: 92,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
+  navOptionActive: {
+    backgroundColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.14,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  navOptionText: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#4B5563',
+    fontWeight: '500',
+  },
+  volunteersContainer: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1A1A2E',
+    marginBottom: 16,
+  },
+  volunteerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginRight: 16,
+  },
+  volunteerInfo: {
+    flex: 1,
+  },
+  volunteerName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1A2E',
+  },
+  volunteerDistance: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 4,
+  },
+  requestButton: {
+    backgroundColor: '#6366F1',
+    borderRadius: 16,
+    paddingVertical: 18,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  requestButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
