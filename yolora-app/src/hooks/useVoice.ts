@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import Voice, { SpeechResultsEvent } from 'react-native-voice';
+import Voice, { SpeechResultsEvent } from '@react-native-voice/voice';
 import Tts from 'react-native-tts';
 import { VoiceCommand } from '../types';
 

@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/co
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { User } from '../users/entities/user.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -28,8 +28,9 @@ export class AuthService {
     // Hash password
     const passwordHash = await bcrypt.hash(dto.password, 10);
 
-    // Create a unique Firebase UID placeholder (in production, this comes from Firebase)
-    const firebaseUid = `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // Use Firebase UID when available; otherwise generate a local fallback for demo mode.
+    const firebaseUid =
+      dto.firebaseUid || `local_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 
     // Create user
     const user = this.userRepository.create({

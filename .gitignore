@@ -1,0 +1,56 @@
+# Dependency directories
+**/node_modules/
+node_modules/
+jspm_packages/
+
+# Build artifacts
+**/dist/
+dist/
+build/
+*.pyc
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Editor-specific files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Android-specific
+yolora-app/android/local.properties
+yolora-app/android/.gradle
+yolora-app/android/app/build
+yolora-app/android/build
+
+# iOS-specific
+yolora-app/ios/Pods
+yolora-app/ios/build
+yolora-app/ios/*.xcworkspace
+yolora-app/ios/*.xcodeproj/project.xcworkspace
+yolora-app/ios/*.xcodeproj/xcuserdata
+
+# Misc
+.cache/
+.npm/
+*.zip
+*.tar.gz
+*.rar
